@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → TXT Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f7f6f3;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .container {
+    width: 100%;
+    max-width: 680px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 28px;
+  }
+  .drop-zone {
+    border: 2px dashed #c7c5c0;
+    border-radius: 8px;
+    background: #fff;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: #2eaadc;
+    background: #f0f9ff;
+  }
+  .drop-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .drop-label { color: #444; font-size: 0.95rem; }
+  .drop-label span { color: #2eaadc; font-weight: 600; cursor: pointer; }
+  .drop-hint { color: #999; font-size: 0.8rem; margin-top: 6px; }
+  #file-input { display: none; }
+
+  .file-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+  .file-item {
+    background: #fff;
+    border: 1px solid #e5e4e0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .file-icon { font-size: 1.4rem; }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name { font-weight: 500; font-size: 0.9rem; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { font-size: 0.78rem; color: #999; }
+  .file-status { font-size: 0.8rem; font-weight: 500; }
+  .status-pending { color: #999; }
+  .status-processing { color: #f59e0b; }
+  .status-done { color: #22c55e; }
+  .status-error { color: #ef4444; }
+  .download-btn {
+    background: #2eaadc;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .download-btn:hover { background: #1d8fb8; }
+  .remove-btn {
+    background: none;
+    border: none;
+    color: #bbb;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 4px;
+    transition: color 0.15s;
+  }
+  .remove-btn:hover { color: #ef4444; }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+  }
+  .btn-primary {
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 11px 24px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex: 1;
+  }
+  .btn-primary:hover { background: #333; }
+  .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-secondary {
+    background: #fff;
+    color: #444;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    padding: 11px 18px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: #f5f5f5; }
+
+  .progress-bar-wrap {
+    background: #eee;
+    border-radius: 99px;
+    height: 4px;
+    margin-top: 8px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar {
+    height: 100%;
+    background: #2eaadc;
+    transition: width 0.3s;
+    width: 0%;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📄 PDF → TXT Converter</h1>
+  <p class="subtitle">Upload one or more PDFs and download them as plain text files.</p>
+
+  <div class="drop-zone" id="drop-zone">
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">Drag & drop PDFs here, or <span onclick="document.getElementById('file-input').click()">browse</span></div>
+    <div class="drop-hint">Supports multiple files · Processed entirely in your browser</div>
+  </div>
+  <input type="file" id="file-input" accept=".pdf" multiple>
+
+  <div class="file-list" id="file-list"></div>
+
+  <div class="actions" id="actions" style="display:none">
+    <button class="btn-primary" id="convert-btn" onclick="convertAll()">Convert All</button>
+    <button class="btn-secondary" onclick="clearAll()">Clear</button>
+  </div>
+</div>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  let files = []; // { file, status, text }
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const fileList = document.getElementById('file-list');
+  const actions = document.getElementById('actions');
+  const convertBtn = document.getElementById('convert-btn');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    addFiles([...e.dataTransfer.files]);
+  });
+  fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
+
+  function addFiles(newFiles) {
+    newFiles.filter(f => f.type === 'application/pdf').forEach(f => {
+      files.push({ file: f, status: 'pending', text: null });
+    });
+    render();
+  }
+
+  function render() {
+    fileList.innerHTML = '';
+    files.forEach((item, i) => {
+      const el = document.createElement('div');
+      el.className = 'file-item';
+      el.id = `item-${i}`;
+      const size = (item.file.size / 1024).toFixed(1) + ' KB';
+      let statusLabel = '', statusClass = '';
+      if (item.status === 'pending') { statusLabel = 'Pending'; statusClass = 'status-pending'; }
+      else if (item.status === 'processing') { statusLabel = 'Converting…'; statusClass = 'status-processing'; }
+      else if (item.status === 'done') { statusLabel = 'Done ✓'; statusClass = 'status-done'; }
+      else { statusLabel = 'Error'; statusClass = 'status-error'; }
+
+      el.innerHTML = `
+        <div class="file-icon">📄</div>
+        <div class="file-info">
+          <div class="file-name">${item.file.name}</div>
+          <div class="file-size">${size}</div>
+          <div class="progress-bar-wrap" id="prog-wrap-${i}"><div class="progress-bar" id="prog-${i}"></div></div>
+        </div>
+        <span class="file-status ${statusClass}" id="status-${i}">${statusLabel}</span>
+        ${item.status === 'done' ? `<button class="download-btn" onclick="downloadOne(${i})">Download</button>` : ''}
+        <button class="remove-btn" onclick="removeFile(${i})" title="Remove">✕</button>
+      `;
+      fileList.appendChild(el);
+    });
+    actions.style.display = files.length ? 'flex' : 'none';
+    convertBtn.disabled = files.every(f => f.status === 'done');
+  }
+
+  function removeFile(i) { files.splice(i, 1); render(); }
+  function clearAll() { files = []; render(); }
+
+  async function convertAll() {
+    convertBtn.disabled = true;
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].status === 'done') continue;
+      await convertFile(i);
+    }
+    render();
+  }
+
+  async function convertFile(i) {
+    files[i].status = 'processing';
+    updateStatus(i, 'Converting…', 'status-processing');
+    const wrap = document.getElementById(`prog-wrap-${i}`);
+    const bar = document.getElementById(`prog-${i}`);
+    if (wrap) wrap.style.display = 'block';
+
+    try {
+      const arrayBuffer = await files[i].file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const total = pdf.numPages;
+      let fullText = '';
+
+      for (let p = 1; p <= total; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        fullText += `--- Page ${p} ---\n${pageText}\n\n`;
+        if (bar) bar.style.width = ((p / total) * 100) + '%';
+      }
+
+      files[i].text = fullText;
+      files[i].status = 'done';
+      updateStatus(i, 'Done ✓', 'status-done');
+      if (wrap) wrap.style.display = 'none';
+
+      // Add download button
+      const statusEl = document.getElementById(`status-${i}`);
+      if (statusEl) {
+        const btn = document.createElement('button');
+        btn.className = 'download-btn';
+        btn.textContent = 'Download';
+        btn.onclick = () => downloadOne(i);
+        statusEl.after(btn);
+      }
+    } catch(e) {
+      files[i].status = 'error';
+      updateStatus(i, 'Error ✗', 'status-error');
+      if (wrap) wrap.style.display = 'none';
+      console.error(e);
+    }
+  }
+
+  function updateStatus(i, label, cls) {
+    const el = document.getElementById(`status-${i}`);
+    if (!el) return;
+    el.textContent = label;
+    el.className = `file-status ${cls}`;
+  }
+
+  function downloadOne(i) {
+    const item = files[i];
+    if (!item.text) return;
+    const blob = new Blob([item.text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = item.file.name.replace(/\.pdf$/i, '.txt');
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+</script>
+</body>
+</html>
