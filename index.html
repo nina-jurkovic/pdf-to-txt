@@ -201,7 +201,7 @@
       el.innerHTML = `
         <div class="file-icon">📄</div>
         <div class="file-info">
-          <div class="file-name">${item.file.name}</div>
+          <div class="file-name"></div>
           <div class="file-size">${size}</div>
           <div class="progress-bar-wrap" id="prog-wrap-${i}"><div class="progress-bar" id="prog-${i}"></div></div>
         </div>
@@ -209,6 +209,7 @@
         ${item.status === 'done' ? `<button class="download-btn" onclick="downloadOne(${i})">Download</button>` : ''}
         <button class="remove-btn" onclick="removeFile(${i})" title="Remove">✕</button>
       `;
+      el.querySelector('.file-name').textContent = item.file.name;
       fileList.appendChild(el);
     });
     actions.style.display = files.length ? 'flex' : 'none';
