@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PDF → TXT Converter</title>
+<script src="./pdf.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -157,9 +158,8 @@
   </div>
 </div>
 
-<script type="module">
-  import * as pdfjsLib from './pdf.mjs';
-  pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.mjs';
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
 
   let files = []; // { file, status, text }
 
@@ -251,7 +251,18 @@
 
       files[i].text = fullText;
       files[i].status = 'done';
-      render();
+      updateStatus(i, 'Done ✓', 'status-done');
+      if (wrap) wrap.style.display = 'none';
+
+      // Add download button
+      const statusEl = document.getElementById(`status-${i}`);
+      if (statusEl) {
+        const btn = document.createElement('button');
+        btn.className = 'download-btn';
+        btn.textContent = 'Download';
+        btn.onclick = () => downloadOne(i);
+        statusEl.after(btn);
+      }
     } catch(e) {
       files[i].status = 'error';
       updateStatus(i, 'Error ✗', 'status-error');
@@ -277,12 +288,6 @@
     a.click();
     URL.revokeObjectURL(a.href);
   }
-
-  // Expose functions used by inline onclick handlers
-  window.convertAll = convertAll;
-  window.clearAll = clearAll;
-  window.downloadOne = downloadOne;
-  window.removeFile = removeFile;
 </script>
 </body>
 </html>
