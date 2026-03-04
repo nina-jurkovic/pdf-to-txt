@@ -179,7 +179,7 @@
   fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
 
   function addFiles(newFiles) {
-    newFiles.filter(f => f.type === 'application/pdf').forEach(f => {
+    newFiles.filter(f => f.name.toLowerCase().endsWith('.pdf')).forEach(f => {
       files.push({ file: f, status: 'pending', text: null });
     });
     render();
