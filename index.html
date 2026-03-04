@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PDF → TXT Converter</title>
-<script src="./pdf.min.js" type="module"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -254,7 +253,6 @@
       updateStatus(i, 'Done ✓', 'status-done');
       if (wrap) wrap.style.display = 'none';
 
-      // Add download button
       const statusEl = document.getElementById(`status-${i}`);
       if (statusEl) {
         const btn = document.createElement('button');
@@ -288,6 +286,11 @@
     a.click();
     URL.revokeObjectURL(a.href);
   }
+
+  window.convertAll = convertAll;
+  window.clearAll = clearAll;
+  window.removeFile = removeFile;
+  window.downloadOne = downloadOne;
 </script>
 </body>
 </html>
