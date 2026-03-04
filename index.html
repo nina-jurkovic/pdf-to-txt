@@ -158,8 +158,9 @@
 </div>
 
 <script type="module">
-  import * as pdfjsLib from './pdf.min.js';
-  pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
+  import * as pdfjsLib from './pdf.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.mjs';
+
   let files = []; // { file, status, text }
 
   const dropZone = document.getElementById('drop-zone');
@@ -178,7 +179,7 @@
   fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
 
   function addFiles(newFiles) {
-    newFiles.filter(f => f.name.toLowerCase().endsWith('.pdf')).forEach(f => {
+    newFiles.filter(f => f.type === 'application/pdf').forEach(f => {
       files.push({ file: f, status: 'pending', text: null });
     });
     render();
@@ -250,17 +251,7 @@
 
       files[i].text = fullText;
       files[i].status = 'done';
-      updateStatus(i, 'Done ✓', 'status-done');
-      if (wrap) wrap.style.display = 'none';
-
-      const statusEl = document.getElementById(`status-${i}`);
-      if (statusEl) {
-        const btn = document.createElement('button');
-        btn.className = 'download-btn';
-        btn.textContent = 'Download';
-        btn.onclick = () => downloadOne(i);
-        statusEl.after(btn);
-      }
+      render();
     } catch(e) {
       files[i].status = 'error';
       updateStatus(i, 'Error ✗', 'status-error');
@@ -287,10 +278,11 @@
     URL.revokeObjectURL(a.href);
   }
 
+  // Expose functions used by inline onclick handlers
   window.convertAll = convertAll;
   window.clearAll = clearAll;
-  window.removeFile = removeFile;
   window.downloadOne = downloadOne;
+  window.removeFile = removeFile;
 </script>
 </body>
 </html>
